@@ -102,6 +102,7 @@ struct StatusView: View {
                     if SharedStatus.isAvailable {
                         accessRow
                         autoRow
+                        lookupRow
                     }
                 } footer: {
                     if !SharedStatus.isAvailable {
@@ -177,6 +178,16 @@ struct StatusView: View {
             }
         } else {
             StatusRow(light: .off, title: "Open automatically") { Text("Not reported yet") }
+        }
+    }
+
+    @ViewBuilder
+    private var lookupRow: some View {
+        if let lookup = model.status?.lastLookup {
+            let at = Date(timeIntervalSince1970: lookup.at / 1000)
+            StatusRow(light: lookup.ranged ? .green : .yellow, title: "Last lookup") {
+                Text("\(Int(lookup.ms)) ms, \(lookup.ranged ? "partial index download" : "whole index download") · \(at, format: .relative(presentation: .named))")
+            }
         }
     }
 

@@ -40,7 +40,13 @@ function hasArticleSlug(url) {
 const lookups = new Map(); // url -> Promise<article ID | null>
 
 function lookup(url) {
-  if (!lookups.has(url)) lookups.set(url, owlResolve(url).catch(() => null));
+  if (!lookups.has(url)) {
+    lookups.set(url, owlResolve(url).catch(() => null).then(async (id) => {
+      await browser.storage.local.set({ lastLookup: { ...owlLastLookup, at: Date.now() } });
+      syncToApp().catch(() => {});
+      return id;
+    }));
+  }
   return lookups.get(url);
 }
 
@@ -51,8 +57,8 @@ function lookup(url) {
 async function syncToApp() {
   if (!IS_SAFARI) return;
   const { sites, auto } = await settings();
-  const { seen = {}, active = 0 } = await browser.storage.local.get(['seen', 'active']);
-  await browser.runtime.sendNativeMessage(APP_ID, { action: 'sync', state: { sites, auto, seen, active } });
+  const { seen = {}, active = 0, lastLookup = null } = await browser.storage.local.get(['seen', 'active', 'lastLookup']);
+  await browser.runtime.sendNativeMessage(APP_ID, { action: 'sync', state: { sites, auto, seen, active, lastLookup } });
 }
 
 /* Records that the extension ran (on an enabled site, if given), reporting it when stale. */

@@ -23,7 +23,7 @@ The same extension code runs everywhere; only the hand-off to News differs:
 | Safari, Mac | The extension's native handler opens `applenewss:///<articleID>` with `NSWorkspace`, so Safari doesn't ask first. |
 | Chrome, Mac | The page navigates to `applenewss:///<articleID>`. Chrome asks before opening News, with an option to always allow it for that site. |
 
-The lookup takes one ~500 KB download from Apple's CDN and feels instant.
+Each lookup downloads about 48 KB from Apple's CDN (see [Partial downloads](#partial-downloads)).
 
 ## The lookup
 
@@ -43,6 +43,29 @@ server learns only which bucket was requested, not which of its ~9,000 entries t
 The files are served with `Access-Control-Allow-Origin: *` and support range requests. The
 storefront field (`143441` is the US, `143455` Canada) does not restrict the lookup; macOS News
 returns the article ID regardless.
+
+### Partial downloads
+
+A bucket file is about 530 KB, but its entries are sorted by hash and the hashes are uniformly
+distributed, so a hash's share of the hash space predicts where its entry sits. `owl.js` requests a
+48 KB range centred on that spot. Over 440 test lookups (hits, misses, and the first and last entry
+of several files) every one was answered by that first range; if one isn't, the next range over is
+fetched. If range requests fail, it downloads the whole file instead.
+
+Cold lookups (HTTP cache off) from an extension page in Chromium, with DevTools network throttling,
+median of five URLs:
+
+| Connection | Whole file (515 KB) | Range (48 KB) | Faster by |
+| --- | --- | --- | --- |
+| Wi-Fi, no throttling | 109 ms | 6 ms | 18× |
+| 20 Mbps, 40 ms latency | 268 ms | 70 ms | 3.8× |
+| 5 Mbps, 100 ms | 956 ms | 193 ms | 5.0× |
+| 1.5 Mbps, 300 ms | 3.1 s | 0.58 s | 5.3× |
+| 400 kbps, 500 ms | 11.0 s | 1.5 s | 7.2× |
+
+The CDN rejects CORS preflights. Extension contexts with host permission don't send one, but an
+ordinary web page in Chromium does, so the same code run from a page falls back to the whole file.
+The status app's *Last lookup* row shows which kind Safari used.
 
 ## How it was found
 

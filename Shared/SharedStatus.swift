@@ -8,6 +8,13 @@ struct ExtensionStatus: Codable {
     var auto: Bool
     var seen: [String: Double]  // site -> when the extension last ran there (ms since 1970)
     var active: Double          // when the extension last ran anywhere (ms since 1970)
+    var lastLookup: Lookup?
+
+    struct Lookup: Codable {
+        var ranged: Bool        // fetched part of the index rather than the whole bucket file
+        var ms: Double
+        var at: Double          // ms since 1970
+    }
 
     func lastSeen(_ site: String) -> Date? {
         seen[site].map { Date(timeIntervalSince1970: $0 / 1000) }
