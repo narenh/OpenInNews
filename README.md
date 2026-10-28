@@ -4,8 +4,8 @@ Browser extensions for Safari (iPhone, iPad and Mac) and Chrome (Mac) that open 
 articles (WSJ, The Atlantic, The New Yorker, WIRED…) in the Apple News app, where an Apple News+
 subscription covers them.
 
-It needs no private APIs and no server. It works by reproducing, in about 100 lines of JavaScript,
-the lookup that macOS News uses to turn a web URL into a News article.
+It needs no private APIs and no server. It works by reproducing the lookup that macOS News uses to
+turn a web URL into a News article: in Swift for Safari, and in JavaScript for Chrome.
 
 ## How it works
 
@@ -17,7 +17,8 @@ the lookup that macOS News uses to turn a web URL into a News article.
 3. On a hit, News opens the article (if automatic opening is on) and an *Open in News* pill appears
    at the bottom of the page. A miss means News doesn't have the article, so nothing happens.
 
-The same extension code runs everywhere; only the hand-off to News differs:
+The web extension is shared by every browser. Safari adds native code for the lookup and, on the Mac,
+for opening News. How News opens:
 
 | Browser | How News opens |
 | --- | --- |
