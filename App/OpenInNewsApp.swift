@@ -137,14 +137,25 @@ struct StatusView: View {
             StatusRow(light: .green, title: "Safari extension") { Text("On") }
         case false?:
             StatusRow(light: .red, title: "Safari extension") { Text("Off — turn it on in Safari’s settings") }
-            #if os(macOS)
-            Button("Open Safari Extensions Settings…") {
-                SFSafariApplication.showPreferencesForExtension(withIdentifier: SharedStatus.extensionID)
-            }
-            #endif
         case nil:
             StatusRow(light: .off, title: "Safari extension") { Text("iOS can’t report this before 26.2") }
         }
+        Button("Open Safari Extension Settings") {
+            openExtensionSettings()
+        }
+    }
+
+    /// Opens Safari's settings at this extension: on/off, and its website access.
+    private func openExtensionSettings() {
+        #if os(macOS)
+        SFSafariApplication.showPreferencesForExtension(withIdentifier: SharedStatus.extensionID)
+        #else
+        if #available(iOS 26.2, *) {
+            SFSafariSettings.openExtensionsSettings(forIdentifiers: [SharedStatus.extensionID])
+        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
 
     private var reachableSites: [String] {
@@ -225,8 +236,8 @@ struct StatusView: View {
             Label("Open Safari › Settings › Extensions", systemImage: "1.circle")
             Label("Tick Open in News", systemImage: "2.circle")
             #else
-            Label("Open Settings › Apps › Safari › Extensions", systemImage: "1.circle")
-            Label("Tap Open in News and turn it on", systemImage: "2.circle")
+            Label("Tap Open Safari Extension Settings above", systemImage: "1.circle")
+            Label("Turn Open in News on", systemImage: "2.circle")
             #endif
             Label("Open a publisher’s article in Safari and allow the extension there", systemImage: "3.circle")
         }
