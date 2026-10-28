@@ -27,7 +27,8 @@ const send = (action, fields = {}) => browser.runtime.sendMessage({ action, ...f
       $('open').disabled = false;
       return;
     }
-    await browser.tabs.update(tab.id, { url: `applenewss:///${id}` });
+    const { opened } = await send('open', { id });
+    if (!opened) await browser.tabs.update(tab.id, { url: `applenewss:///${id}` });
     window.close();
   };
 })();

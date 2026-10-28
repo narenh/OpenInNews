@@ -10,16 +10,16 @@
     "256": "icons/256.png",
     "512": "icons/512.png"
   },
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "nativeMessaging"],
   "host_permissions": ["https://news-assets.apple.com/*"],
   "background": {
-    "scripts": ["sites.js", "owl.js", "background.js"],
+    "scripts": ["compat.js", "sites.js", "owl.js", "background.js"],
     "persistent": false
   },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "js": ["compat.js", "content.js"],
       "run_at": "document_start"
     }
   ],

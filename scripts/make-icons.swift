@@ -4,17 +4,20 @@
 //   swift scripts/make-icons.swift
 //
 // Writes App/Assets.xcassets/AppIcon.appiconset/icon.png (1024, full bleed; iOS
-// applies the mask) and Extension/Resources/icons/<size>.png (rounded).
+// applies the mask), mac-<size>.png beside it (rounded, inset to the macOS icon
+// grid) and Extension/Resources/icons/<size>.png (rounded).
 
 import AppKit
 
-func draw(size: CGFloat, rounded: Bool) -> Data {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size),
+func draw(size canvas: CGFloat, rounded: Bool, inset: CGFloat = 0) -> Data {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(canvas), pixelsHigh: Int(canvas),
                                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     let cg = NSGraphicsContext.current!.cgContext
+    let size = canvas * (1 - 2 * inset)
+    cg.translateBy(x: canvas * inset, y: canvas * inset)
     let s = size / 1024
 
     // Background: indigo to violet, top to bottom.
@@ -82,6 +85,10 @@ func draw(size: CGFloat, rounded: Bool) -> Data {
 let root = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().deletingLastPathComponent()
 try draw(size: 1024, rounded: false)
     .write(to: root.appendingPathComponent("App/Assets.xcassets/AppIcon.appiconset/icon.png"))
+for size in [16, 32, 64, 128, 256, 512, 1024] {
+    try draw(size: CGFloat(size), rounded: true, inset: 100.0 / 1024)
+        .write(to: root.appendingPathComponent("App/Assets.xcassets/AppIcon.appiconset/mac-\(size).png"))
+}
 for size in [16, 32, 48, 96, 128, 256, 512] {
     try draw(size: CGFloat(size), rounded: true)
         .write(to: root.appendingPathComponent("Extension/Resources/icons/\(size).png"))

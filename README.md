@@ -1,7 +1,8 @@
-# Open in News for iOS
+# Open in News
 
-A Safari extension for iPhone and iPad that opens paywalled publisher articles (WSJ, The Atlantic,
-The New Yorker, WIRED…) in the Apple News app, where an Apple News+ subscription covers them.
+Browser extensions for Safari (iPhone, iPad and Mac) and Chrome (Mac) that open paywalled publisher
+articles (WSJ, The Atlantic, The New Yorker, WIRED…) in the Apple News app, where an Apple News+
+subscription covers them.
 
 It needs no private APIs and no server. It works by reproducing, in about 100 lines of JavaScript,
 the lookup that macOS News uses to turn a web URL into a News article.
@@ -11,11 +12,18 @@ the lookup that macOS News uses to turn a web URL into a News article.
 1. A content script reports each page you load to the extension's background script.
 2. If the page is on a site you've turned on and its URL ends in an article slug, the extension
    looks the URL up in Apple's public "open web links" index ([`owl.js`](Extension/Resources/owl.js)).
-3. On a hit, the page opens `applenewss:///<articleID>`, and a pill linking to
-   `https://apple.news/<articleID>` appears at the bottom of the page. A miss means News doesn't
-   have the article, so nothing happens.
+3. On a hit, News opens the article (if automatic opening is on) and an *Open in News* pill appears
+   at the bottom of the page. A miss means News doesn't have the article, so nothing happens.
 
-On a phone, the lookup takes one ~500 KB download from Apple's CDN and feels instant.
+The same extension code runs everywhere; only the hand-off to News differs:
+
+| Browser | How News opens |
+| --- | --- |
+| Safari, iPhone and iPad | The page navigates to `applenewss:///<articleID>`. The pill links to `https://apple.news/<articleID>`, a universal link that opens News directly when tapped. |
+| Safari, Mac | The extension's native handler opens `applenewss:///<articleID>` with `NSWorkspace`, so Safari doesn't ask first. |
+| Chrome, Mac | The page navigates to `applenewss:///<articleID>`. Chrome asks before opening News, with an option to always allow it for that site. |
+
+The lookup takes one ~500 KB download from Apple's CDN and feels instant.
 
 ## The lookup
 
@@ -76,7 +84,9 @@ that it isn't useful as a pre-check, so the extension uses a site list instead.
 
 ## Install
 
-Requires Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and iOS 26 or later.
+### Safari (iPhone, iPad, Mac)
+
+Requires Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen); iOS 26 or macOS 14 or later.
 
 ```sh
 brew install xcodegen
@@ -84,11 +94,27 @@ xcodegen generate
 open OpenInNews.xcodeproj
 ```
 
-Set your own team in `project.yml` (`DEVELOPMENT_TEAM`) and bundle IDs, then run the
-**OpenInNews** scheme on your device. Then:
+Set your own team (`DEVELOPMENT_TEAM`), bundle IDs and app group names in `project.yml` and
+[`Shared/SharedStatus.swift`](Shared/SharedStatus.swift).
 
-1. **Settings › Apps › Safari › Extensions › Open in News**: turn it on.
-2. Allow it on the publishers you read, or on all websites.
+- **iPhone and iPad:** run the **OpenInNews** scheme on your device, then turn the extension on in
+  **Settings › Apps › Safari › Extensions › Open in News** and allow it on the publishers you read.
+- **Mac:** run `./scripts/install-mac.sh`, which builds the **OpenInNewsMac** scheme and installs it
+  to `/Applications`. Then tick **Open in News** in **Safari › Settings › Extensions** and allow it
+  on the publishers you read.
+
+The app shows status lights for the extension: whether Safari has it turned on, whether it has run
+on your sites, and whether automatic opening is on.
+
+### Chrome (Mac)
+
+```sh
+./scripts/build-chrome.sh
+```
+
+Then, at `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and select
+`build/chrome`. The first time an article opens, tick *Always allow* in Chrome's dialog to skip it
+next time. Chrome has no native helper to install.
 
 ## Using it
 
@@ -111,17 +137,22 @@ that block automated requests report 0/0.
 ## Layout
 
 ```
-App/                      Host app: setup instructions
+App/                      Status app for iOS and macOS (one SwiftUI source)
+Shared/SharedStatus.swift Settings the extension reports to the app, via an app group
 Extension/
-  SafariWebExtensionHandler.swift   Required principal class; does nothing
-  Resources/
+  SafariWebExtensionHandler.swift   Stores reports; opens News on the Mac
+  Resources/              The web extension, shared by Safari and Chrome
     owl.js                Apple News URL resolver (also runs in Node)
     background.js         Site settings, lookups, auto-open cooldown
     content.js            Per-page check, auto-open and the pill
-    popup.html, popup.js  Address-bar menu
+    popup.html, popup.js  The toolbar / address-bar menu
     sites.js              Seed site list
+    compat.js             Maps `browser` to `chrome` in Chrome
+Chrome/                   Chrome's manifest and service worker
 research/                 macOS tools used to recover the lookup
 scripts/
+  build-chrome.sh         Assembles build/chrome
+  install-mac.sh          Builds and installs the Mac app
   check-site.js           Measures how much of a site News carries
   make-icons.swift        Draws the icons
 ```

@@ -1,40 +1,36 @@
 # Generate OpenInNews.xcodeproj with: xcodegen generate
+# Info.plists and entitlements are generated into Config/ from the properties below.
 name: OpenInNews
 options:
   deploymentTarget:
     iOS: "26.0"
+    macOS: "14.0"
 settings:
   base:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: UC3Y84QJ83
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "2"
-targets:
-  OpenInNews:
+    CURRENT_PROJECT_VERSION: "4"
+
+# Shared pieces of the four targets.
+targetTemplates:
+  App:
     type: application
-    platform: iOS
-    sources: [App]
+    sources:
+      - path: App
+      - path: Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.canopysf.OpenInNews
-        TARGETED_DEVICE_FAMILY: "1,2"
+        PRODUCT_NAME: Open in News
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-    info:
-      path: App/Info.plist
-      properties:
-        CFBundleDisplayName: Open in News
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        UILaunchScreen: {}
-    dependencies:
-      - target: OpenInNewsExtension
-  OpenInNewsExtension:
+  Extension:
     type: app-extension
-    platform: iOS
     sources:
       - path: Extension
-        excludes: [Info.plist, Resources]
+        excludes: [Resources]
+      - path: Shared
       # Safari wants manifest.json at the top of the bundle, so the files are
       # copied flat; only icons/ stays a folder, matching the manifest's paths.
       - path: Extension/Resources
@@ -46,13 +42,74 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.canopysf.OpenInNews.Extension
+
+targets:
+  OpenInNews:
+    templates: [App]
+    platform: iOS
+    settings:
+      base:
         TARGETED_DEVICE_FAMILY: "1,2"
     info:
-      path: Extension/Info.plist
+      path: Config/App-iOS.plist
+      properties: &appInfo
+        CFBundleDisplayName: Open in News
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+    # The app group carries the extension's settings to the app.
+    entitlements:
+      path: Config/App-iOS.entitlements
       properties:
+        com.apple.security.application-groups: [group.com.canopysf.OpenInNews]
+    dependencies:
+      - target: OpenInNewsExtension
+
+  OpenInNewsExtension:
+    templates: [Extension]
+    platform: iOS
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: Config/Extension-iOS.plist
+      properties: &extensionInfo
         CFBundleDisplayName: Open in News
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.Safari.web-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SafariWebExtensionHandler
+    entitlements:
+      path: Config/Extension-iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.canopysf.OpenInNews]
+
+  OpenInNewsMac:
+    templates: [App]
+    platform: macOS
+    info:
+      path: Config/App-macOS.plist
+      properties:
+        <<: *appInfo
+        LSApplicationCategoryType: public.app-category.news
+    # On macOS a team-prefixed group needs no provisioning profile.
+    entitlements:
+      path: Config/App-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [UC3Y84QJ83.com.canopysf.OpenInNews]
+    dependencies:
+      - target: OpenInNewsMacExtension
+
+  OpenInNewsMacExtension:
+    templates: [Extension]
+    platform: macOS
+    info:
+      path: Config/Extension-macOS.plist
+      properties: *extensionInfo
+    entitlements:
+      path: Config/Extension-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [UC3Y84QJ83.com.canopysf.OpenInNews]

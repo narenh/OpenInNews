@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Open in News",
+  "version": "1.0",
+  "description": "Opens paywalled publisher articles in the Apple News app.",
+  "icons": {
+    "48": "icons/48.png",
+    "96": "icons/96.png",
+    "128": "icons/128.png"
+  },
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://news-assets.apple.com/*"],
+  "background": {
+    "service_worker": "sw.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["compat.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png"
+    }
+  }
+}

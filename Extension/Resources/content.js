@@ -1,18 +1,27 @@
 /*
  * Asks the background script whether this page is an Apple News article. On a
- * hit it opens News (if automatic) and shows a pill that links to the article.
+ * hit it opens News (if automatic) and shows a pill that opens the article.
  *
- * The pill links to https://apple.news/<id>, a universal link: tapped from a
- * publisher's page it opens News directly. The automatic path uses the custom
- * scheme instead, since a script-initiated navigation never triggers a
- * universal link.
+ * On iPhone and iPad the pill links to https://apple.news/<id>, a universal
+ * link, which opens News directly when tapped from a publisher's page. Elsewhere
+ * the background script opens News natively (Safari on the Mac) or the page
+ * navigates to the applenewss: scheme, which Chrome confirms in a dialog.
  */
 (() => {
   if (window.top !== window) return;
 
+  const touchDevice = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function openArticle(id) {
+    const viaScheme = () => { location.href = `applenewss:///${id}`; };
+    if (touchDevice) return viaScheme();
+    browser.runtime.sendMessage({ action: 'open', id }).then((r) => r?.opened || viaScheme(), viaScheme);
+  }
+
   browser.runtime.sendMessage({ action: 'checkPage', url: location.href }).then((result) => {
-    if (!result || !result.id) return;
-    if (result.openNow) location.href = `applenewss:///${result.id}`;
+    if (!result?.id) return;
+    if (result.openNow) openArticle(result.id);
     if (document.body) showPill(result.id);
     else document.addEventListener('DOMContentLoaded', () => showPill(result.id), { once: true });
   }, () => {});
@@ -33,6 +42,12 @@
         <a href="https://apple.news/${id}">Open in News</a>
         <button aria-label="Dismiss">×</button>
       </div>`;
+    if (!touchDevice) {
+      root.querySelector('a').addEventListener('click', (e) => {
+        e.preventDefault();
+        openArticle(id);
+      });
+    }
     root.querySelector('button').addEventListener('click', () => host.remove());
     document.documentElement.appendChild(host);
   }
