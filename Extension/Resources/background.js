@@ -56,7 +56,7 @@ async function resolve(url) {
   let id, report;
   if (native) {
     id = native.found ? native.id : null;
-    report = { ranged: native.ranged, native: true, ms: Date.now() - started };
+    report = { ranged: native.ranged, native: true, newsHeaders: native.newsHeaders === true, ms: Date.now() - started };
   } else {
     id = await owlResolve(url).catch(() => null);
     report = { ...owlLastLookup, native: false, ms: Date.now() - started };

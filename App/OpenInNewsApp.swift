@@ -186,7 +186,7 @@ struct StatusView: View {
         if let lookup = model.status?.lastLookup {
             let at = Date(timeIntervalSince1970: lookup.at / 1000)
             StatusRow(light: lookup.ranged ? .green : .yellow, title: "Last lookup") {
-                Text("\(Int(lookup.ms)) ms · \(lookup.ranged ? "partial" : "whole") index download\(lookup.native == true ? " by the app extension" : " by Safari") · \(at, format: .relative(presentation: .named))")
+                Text("\(Int(lookup.ms)) ms · \(lookup.ranged ? "partial" : "whole") index download\(lookup.native == true ? " by the app extension" : " by Safari")\(lookup.newsHeaders == true ? " as News" : "") · \(at, format: .relative(presentation: .named))")
             }
         }
     }

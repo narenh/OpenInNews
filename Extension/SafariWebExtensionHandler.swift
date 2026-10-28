@@ -18,7 +18,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             Task {
                 do {
                     let result = try await OWLResolver.resolve(url)
-                    Self.reply(context, ["found": result.articleID != nil, "id": result.articleID ?? "", "ranged": result.ranged])
+                    Self.reply(context, ["found": result.articleID != nil, "id": result.articleID ?? "", "ranged": result.ranged,
+                                         "newsHeaders": OWLResolver.sendsNewsHeaders])
                 } catch {
                     Self.reply(context, ["error": String(describing: error)])
                 }

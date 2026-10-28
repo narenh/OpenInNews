@@ -11,7 +11,7 @@ settings:
     DEVELOPMENT_TEAM: UC3Y84QJ83
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "6"
+    CURRENT_PROJECT_VERSION: "7"
 
 # Shared pieces of the four targets.
 targetTemplates:
@@ -42,6 +42,11 @@ targetTemplates:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.canopysf.OpenInNews.Extension
+      # Debug builds send News's own request headers (OWLResolver.swift); Release
+      # builds don't unless built with that flag, as scripts/install-mac.sh does.
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) NEWS_CLIENT_HEADERS
 
 targets:
   OpenInNews:

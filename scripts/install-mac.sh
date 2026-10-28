@@ -9,8 +9,10 @@ set -euo pipefail
 ROOT="${0:A:h}/.."
 cd "$ROOT"
 xcodegen generate --quiet
+# A build you install yourself sends News's request headers; see OWLResolver.swift.
 xcodebuild -project OpenInNews.xcodeproj -scheme OpenInNewsMac -configuration Release \
-  -destination 'platform=macOS' -derivedDataPath build/dd build \
+  -destination 'platform=macOS' -derivedDataPath build/dd \
+  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) NEWS_CLIENT_HEADERS' build \
   | grep -E 'error:|BUILD (SUCCEEDED|FAILED)'
 
 BUILT="build/dd/Build/Products/Release/Open in News.app"

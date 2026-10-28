@@ -132,6 +132,20 @@ Set your own team (`DEVELOPMENT_TEAM`), bundle IDs and app group names in `proje
 The app shows status lights for the extension: whether Safari has it turned on, whether it has run
 on your sites, and whether automatic opening is on.
 
+### Builds you install yourself vs. release builds
+
+Safari's native lookups can send the same request headers News sends for them (`User-Agent:
+AppleNews/…`, `X-MMe-Client-Info`), so the CDN can't block this extension without blocking News. That
+code is compiled in only with the `NEWS_CLIENT_HEADERS` Swift flag:
+
+- **Debug builds** (running from Xcode) set it.
+- **`scripts/install-mac.sh`** sets it for its Release build.
+- **Other Release builds**, including App Store archives, don't, and their binaries contain none of
+  it. Those identify as Open in News.
+
+To set it on any other build, pass
+`SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) NEWS_CLIENT_HEADERS'` to `xcodebuild`.
+
 ### Chrome (Mac)
 
 ```sh

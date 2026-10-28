@@ -136,9 +136,63 @@ enum OWLResolver {
 
     // MARK: Fetching
 
+    #if NEWS_CLIENT_HEADERS
+    static let sendsNewsHeaders = true
+
+    /// The headers NewsCore sends with these requests, filled in the way it fills
+    /// them from News's Info.plist (traced with research/trace-resolver.m). Only
+    /// builds you install yourself set NEWS_CLIENT_HEADERS; Release builds,
+    /// including App Store archives, don't contain this code.
+    private static let newsHeaders: [String: String] = {
+        #if os(macOS)
+        let newsApp = "/System/Applications/News.app/Contents/Info.plist"
+        let newsCore = "/System/Library/PrivateFrameworks/NewsCore.framework/Resources/Info.plist"
+        let osName = "macOS"
+        #else
+        let newsApp = "/Applications/News.app/Info.plist"
+        let newsCore = "/System/Library/PrivateFrameworks/NewsCore.framework/Info.plist"
+        let osName = "iPhone OS"
+        #endif
+        let app = NSDictionary(contentsOfFile: newsApp)
+        let core = NSDictionary(contentsOfFile: newsCore)
+        // Fallbacks are macOS 27.0's News, for when the sandbox can't read the plists.
+        let version = app?["CFBundleShortVersionString"] as? String ?? "12.0"
+        let build = app?["CFBundleVersion"] as? String ?? "5934.0.2"
+        let coreVersion = core?["CFBundleShortVersionString"] as? String ?? "12.0"
+
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let osVersion = "\(os.majorVersion).\(os.minorVersion)" + (os.patchVersion > 0 ? ".\(os.patchVersion)" : "")
+        return [
+            "User-Agent": "AppleNews/\(build) Version/\(version)",
+            "X-MMe-Client-Info": "<\(sysctl("hw.model") ?? "")> <\(osName);\(osVersion);\(sysctl("kern.osversion") ?? "")> <com.apple.newscore/\(coreVersion) (com.apple.news/\(version))>"
+        ]
+    }()
+
+    private static func sysctl(_ name: String) -> String? {
+        #if os(iOS)
+        if name == "hw.model" {  // on iOS hw.model is the board; the machine name is the model
+            var info = utsname()
+            uname(&info)
+            return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+        }
+        #endif
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(cString: buffer)
+    }
+    #else
+    static let sendsNewsHeaders = false
+    #endif
+
     private static func fetch(_ path: String, range: ClosedRange<Int>? = nil) async throws -> (bytes: [UInt8], start: Int, total: Int?) {
         var request = URLRequest(url: URL(string: base + path)!)
         if let range { request.setValue("bytes=\(range.lowerBound)-\(range.upperBound)", forHTTPHeaderField: "Range") }
+        #if NEWS_CLIENT_HEADERS
+        for (name, value) in newsHeaders { request.setValue(value, forHTTPHeaderField: name) }
+        request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Apple-Request-UUID")
+        #endif
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw LookupError(message: "\(path): HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
