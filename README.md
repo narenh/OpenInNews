@@ -130,6 +130,10 @@ Set your own team (`DEVELOPMENT_TEAM`), bundle IDs and app group names in `proje
   to `/Applications`. Then tick **Open in News** in **Safari › Settings › Extensions** and allow it
   on the publishers you read.
 
+On iOS, Safari turns the extension off when a development build with a different build number
+(`CURRENT_PROJECT_VERSION`) is installed over it. Reinstalling the same number keeps it on, so leave
+the number alone while you iterate.
+
 The app shows status lights for the extension: whether Safari has it turned on, whether it has run
 on your sites, and whether automatic opening is on.
 
