@@ -1,0 +1,58 @@
+# Generate OpenInNews.xcodeproj with: xcodegen generate
+name: OpenInNews
+options:
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: UC3Y84QJ83
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "2"
+targets:
+  OpenInNews:
+    type: application
+    platform: iOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.canopysf.OpenInNews
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Open in News
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+    dependencies:
+      - target: OpenInNewsExtension
+  OpenInNewsExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extension
+        excludes: [Info.plist, Resources]
+      # Safari wants manifest.json at the top of the bundle, so the files are
+      # copied flat; only icons/ stays a folder, matching the manifest's paths.
+      - path: Extension/Resources
+        excludes: [icons]
+        buildPhase: resources
+      - path: Extension/Resources/icons
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.canopysf.OpenInNews.Extension
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: Extension/Info.plist
+      properties:
+        CFBundleDisplayName: Open in News
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.Safari.web-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SafariWebExtensionHandler
