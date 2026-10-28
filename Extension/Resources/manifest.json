@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Open in News",
+  "name": "Auto Open in News",
   "version": "1.0",
   "description": "Opens paywalled publisher articles in the Apple News app.",
   "icons": {

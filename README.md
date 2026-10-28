@@ -125,14 +125,16 @@ Set your own team (`DEVELOPMENT_TEAM`), bundle IDs and app group names in `proje
 [`Shared/SharedStatus.swift`](Shared/SharedStatus.swift).
 
 - **iPhone and iPad:** run the **OpenInNews** scheme on your device, then turn the extension on in
-  **Settings › Apps › Safari › Extensions › Open in News** and allow it on the publishers you read.
+  **Settings › Apps › Safari › Extensions › Auto Open in News** and allow it on the publishers you read.
 - **Mac:** run `./scripts/install-mac.sh`, which builds the **OpenInNewsMac** scheme and installs it
-  to `/Applications`. Then tick **Open in News** in **Safari › Settings › Extensions** and allow it
-  on the publishers you read.
+  to `/Applications`. Then tick **Auto Open in News** in **Safari › Settings › Extensions** and allow
+  it on the publishers you read.
 
-On iOS, Safari turns the extension off when a development build with a different build number
-(`CURRENT_PROJECT_VERSION`) is installed over it. Reinstalling the same number keeps it on, so leave
-the number alone while you iterate.
+**If Safari keeps turning the extension off:** turn off **Settings › Apps › Safari › Extensions ›
+Share Across Devices**. Safari syncs which extensions are on through iCloud, but only for App Store
+and TestFlight apps. A build you install yourself can't save its state there, so when Safari
+relaunches and applies the iCloud state, it switches the extension off, sometimes after one relaunch,
+sometimes after two. With sharing off, it stays on.
 
 The app shows status lights for the extension: whether Safari has it turned on, whether it has run
 on your sites, and whether automatic opening is on.
