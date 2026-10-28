@@ -82,8 +82,17 @@ func draw(size canvas: CGFloat, rounded: Bool, inset: CGFloat = 0) -> Data {
     return rep.representation(using: .png, properties: [:])!
 }
 
+/// The same PNG without an alpha channel, which App Store Connect requires of the iOS icon.
+func opaque(_ png: Data) -> Data {
+    let image = NSBitmapImageRep(data: png)!.cgImage!
+    let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    return NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .png, properties: [:])!
+}
+
 let root = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().deletingLastPathComponent()
-try draw(size: 1024, rounded: false)
+try opaque(draw(size: 1024, rounded: false))
     .write(to: root.appendingPathComponent("App/Assets.xcassets/AppIcon.appiconset/icon.png"))
 for size in [16, 32, 64, 128, 256, 512, 1024] {
     try draw(size: CGFloat(size), rounded: true, inset: 100.0 / 1024)
