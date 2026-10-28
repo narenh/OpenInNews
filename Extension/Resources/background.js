@@ -6,7 +6,7 @@
 
 const COOLDOWN_MS = 15 * 60 * 1000; // don't auto-open the same URL twice in this window
 const SYNC_INTERVAL_MS = 10 * 60 * 1000; // report activity to the app at most this often
-const APP_ID = 'com.canopysf.OpenInNews';
+const APP_ID = 'com.canopysf.AutoOpenInNews';
 
 // Safari extensions come with a native handler; Chrome's has none.
 const IS_SAFARI = browser.runtime.getURL('').startsWith('safari-web-extension:');
