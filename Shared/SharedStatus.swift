@@ -12,6 +12,7 @@ struct ExtensionStatus: Codable {
 
     struct Lookup: Codable {
         var ranged: Bool        // fetched part of the index rather than the whole bucket file
+        var native: Bool?       // looked up by the app extension rather than in the browser
         var ms: Double
         var at: Double          // ms since 1970
     }

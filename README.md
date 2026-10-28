@@ -11,7 +11,9 @@ the lookup that macOS News uses to turn a web URL into a News article.
 
 1. A content script reports each page you load to the extension's background script.
 2. If the page is on a site you've turned on and its URL ends in an article slug, the extension
-   looks the URL up in Apple's public "open web links" index ([`owl.js`](Extension/Resources/owl.js)).
+   looks the URL up in Apple's public "open web links" index. In Safari the app extension's native
+   code does this ([`OWLResolver.swift`](Extension/OWLResolver.swift)), so the request doesn't come
+   from a browser context; Chrome, and Safari if that fails, use [`owl.js`](Extension/Resources/owl.js).
 3. On a hit, News opens the article (if automatic opening is on) and an *Open in News* pill appears
    at the bottom of the page. A miss means News doesn't have the article, so nothing happens.
 
@@ -65,7 +67,8 @@ median of five URLs:
 
 The CDN rejects CORS preflights. Extension contexts with host permission don't send one, but an
 ordinary web page in Chromium does, so the same code run from a page falls back to the whole file.
-The status app's *Last lookup* row shows which kind Safari used.
+Safari's native lookups aren't subject to CORS at all. The status app's *Last lookup* row shows how
+the last lookup was made.
 
 ## How it was found
 
@@ -163,7 +166,8 @@ that block automated requests report 0/0.
 App/                      Status app for iOS and macOS (one SwiftUI source)
 Shared/SharedStatus.swift Settings the extension reports to the app, via an app group
 Extension/
-  SafariWebExtensionHandler.swift   Stores reports; opens News on the Mac
+  SafariWebExtensionHandler.swift   Native lookups, status reports, opening News on the Mac
+  OWLResolver.swift       Swift port of owl.js, used by Safari
   Resources/              The web extension, shared by Safari and Chrome
     owl.js                Apple News URL resolver (also runs in Node)
     background.js         Site settings, lookups, auto-open cooldown

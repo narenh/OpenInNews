@@ -11,7 +11,7 @@ settings:
     DEVELOPMENT_TEAM: UC3Y84QJ83
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "5"
+    CURRENT_PROJECT_VERSION: "6"
 
 # Shared pieces of the four targets.
 targetTemplates:
@@ -112,4 +112,5 @@ targets:
       path: Config/Extension-macOS.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true # OWLResolver's lookups
         com.apple.security.application-groups: [UC3Y84QJ83.com.canopysf.OpenInNews]

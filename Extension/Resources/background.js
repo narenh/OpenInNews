@@ -39,14 +39,35 @@ function hasArticleSlug(url) {
 
 const lookups = new Map(); // url -> Promise<article ID | null>
 
-function lookup(url) {
-  if (!lookups.has(url)) {
-    lookups.set(url, owlResolve(url).catch(() => null).then(async (id) => {
-      await browser.storage.local.set({ lastLookup: { ...owlLastLookup, at: Date.now() } });
-      syncToApp().catch(() => {});
-      return id;
-    }));
+/*
+ * In Safari the native handler does the lookup (OWLResolver.swift), so the
+ * request comes from the app extension rather than a browser context. owl.js
+ * covers Chrome, and Safari if the native lookup fails.
+ */
+async function nativeLookup(url) {
+  if (!IS_SAFARI) return null;
+  const reply = await browser.runtime.sendNativeMessage(APP_ID, { action: 'resolve', url }).catch(() => null);
+  return typeof reply?.found === 'boolean' ? reply : null;
+}
+
+async function resolve(url) {
+  const started = Date.now();
+  const native = await nativeLookup(url);
+  let id, report;
+  if (native) {
+    id = native.found ? native.id : null;
+    report = { ranged: native.ranged, native: true, ms: Date.now() - started };
+  } else {
+    id = await owlResolve(url).catch(() => null);
+    report = { ...owlLastLookup, native: false, ms: Date.now() - started };
   }
+  await browser.storage.local.set({ lastLookup: { ...report, at: Date.now() } });
+  syncToApp().catch(() => {});
+  return id;
+}
+
+function lookup(url) {
+  if (!lookups.has(url)) lookups.set(url, resolve(url));
   return lookups.get(url);
 }
 
