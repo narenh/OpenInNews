@@ -126,10 +126,14 @@ your own Apple ID and installs it.
 5. Turn off **Settings › Apps › Safari › Extensions › Share Across Devices**, or Safari will keep
    turning the extension off (see below).
 
-With a free Apple ID, apps you sign this way stop opening after 7 days; reinstall through Sideloadly
-to renew. A paid developer account lasts a year. The app's status lights depend on its bundle ID and
-app group, which Sideloadly may change when it signs, so some lights can stay grey; the extension
-works regardless.
+Leave the app's extensions (PlugIns) in place when Sideloadly offers to remove them: the Safari
+extension is one.
+
+A free Apple ID's signature lasts 7 days. Turn on Sideloadly's auto-refresh for this app and it
+re-signs it in the background before then; after the first install over USB it can also reach the
+device over Wi-Fi. A paid developer account's signature lasts a year. The app's status lights depend
+on its bundle ID and app group, which Sideloadly may change when it signs, so some lights can stay
+grey; the extension works regardless.
 
 ### Safari (iPhone, iPad, Mac)
 
