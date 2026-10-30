@@ -111,6 +111,26 @@ that it isn't useful as a pre-check, so the extension uses a site list instead.
 
 ## Install
 
+### iPhone and iPad with Sideloadly (no Xcode)
+
+Each [release](../../releases) has an unsigned IPA. [Sideloadly](https://sideloadly.io) signs it with
+your own Apple ID and installs it.
+
+1. Download `AutoOpenInNews-<version>-unsigned.ipa` from the latest release.
+2. Connect your iPhone or iPad to your computer, open Sideloadly, drag the IPA onto it, enter your
+   Apple ID, and click **Start**.
+3. On the device, trust your Apple ID in **Settings › General › VPN & Device Management**. On iOS 16
+   and later, also turn on **Settings › Privacy & Security › Developer Mode** if iOS asks.
+4. Open the app, tap **Open Safari Extension Settings**, turn **Auto Open in News** on, and allow it
+   on the publishers you read.
+5. Turn off **Settings › Apps › Safari › Extensions › Share Across Devices**, or Safari will keep
+   turning the extension off (see below).
+
+With a free Apple ID, apps you sign this way stop opening after 7 days; reinstall through Sideloadly
+to renew. A paid developer account lasts a year. The app's status lights depend on its bundle ID and
+app group, which Sideloadly may change when it signs, so some lights can stay grey; the extension
+works regardless.
+
 ### Safari (iPhone, iPad, Mac)
 
 Requires Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen); iOS 26 or macOS 14 or later.
