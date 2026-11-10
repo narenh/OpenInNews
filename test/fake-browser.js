@@ -3,12 +3,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const R = `${__dirname}/../Extension/Resources/`;
 
-function load(owlResolve, { openPopup = async () => {} } = {}) {
-  const tabs = {}, icons = {}, popups = {}, store = {}, navigated = {};
+// `store` seeds the extension's storage; `native` makes it a Safari extension whose native handler is that function.
+function load(owlResolve, { openPopup = async () => {}, store = {}, native = null } = {}) {
+  const tabs = {}, icons = {}, popups = {}, navigated = {};
   let onMessage, onUpdated, onClicked, popupsOpened = 0;
   const browser = {
     runtime: {
-      getURL: () => 'chrome-extension://x/',
+      getURL: () => (native ? 'safari-web-extension://x/' : 'chrome-extension://x/'),
+      sendNativeMessage: async (id, m) => native(m),
       getManifest: () => JSON.parse(fs.readFileSync(R + 'manifest.json', 'utf8')),
       onMessage: { addListener: (f) => { onMessage = f; } }
     },
@@ -34,7 +36,7 @@ function load(owlResolve, { openPopup = async () => {} } = {}) {
   const settle = () => new Promise((r) => setTimeout(r, 10));
   const message = (m, sender = {}) => new Promise((res) => onMessage(m, sender, res));
   return {
-    icons, popups, navigated, popupsOpened: () => popupsOpened,
+    icons, popups, store, navigated, popupsOpened: () => popupsOpened,
     async visit(tabId, url, { tabUrl = url } = {}) {
       if (tabUrl) { tabs[tabId] = tabUrl; onUpdated(tabId, { status: 'loading' }); }
       await message({ action: 'checkPage', url }, { tab: { id: tabId } });

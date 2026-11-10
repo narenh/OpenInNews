@@ -6,22 +6,25 @@ const send = (action, fields = {}) => browser.runtime.sendMessage({ action, ...f
   if (!/^https?:/.test(tab?.url ?? '')) {
     $('open').disabled = true;
     $('note').textContent = 'Open a web page first.';
-    document.querySelectorAll('.row').forEach((row) => row.hidden = true);
+    $('site-settings').hidden = true;
     return;
   }
 
-  const { site, on, auto, siteAuto } = await send('siteStatus', { host: new URL(tab.url).hostname });
+  const { site, mode } = await send('siteStatus', { host: new URL(tab.url).hostname });
   $('site').textContent = site;
-  $('site-on').checked = on;
-  $('auto').checked = auto;
-  $('site-auto').checked = siteAuto;
-  // Only matters when the site is on and automatic opening is on.
-  const showSiteAuto = () => { $('site-auto').disabled = !($('site-on').checked && $('auto').checked); };
-  showSiteAuto();
-
-  $('site-on').onchange = (e) => { send('setSite', { site, on: e.target.checked }); showSiteAuto(); };
-  $('auto').onchange = (e) => { send('setAuto', { on: e.target.checked }); showSiteAuto(); };
-  $('site-auto').onchange = (e) => send('setSiteAuto', { site, on: e.target.checked });
+  const hints = {
+    off: 'Articles on this site aren\u2019t checked.',
+    ask: 'Articles are checked. Tap the button on the page to open News.',
+    auto: 'Articles are checked and open in News by themselves.'
+  };
+  const show = (m) => {
+    document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m)));
+    $('mode-hint').textContent = hints[m];
+  };
+  show(mode);
+  document.querySelectorAll('.seg button').forEach((b) => {
+    b.onclick = () => { show(b.dataset.mode); send('setMode', { site, mode: b.dataset.mode }); };
+  });
 
   $('open').onclick = async () => {
     $('open').disabled = true;

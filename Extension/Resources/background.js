@@ -1,7 +1,7 @@
 /*
  * Decides whether a page should open in News, using owl.js to look it up in
- * Apple's index. A page is only looked up on sites you have turned on; a miss
- * means News has no copy, so the page is left alone.
+ * Apple's index. A page is only looked up on sites whose mode is ask or auto;
+ * a miss means News has no copy, so the page is left alone.
  */
 
 const COOLDOWN_MS = 15 * 60 * 1000; // don't auto-open the same URL twice in this window
@@ -12,17 +12,18 @@ const APP_ID = 'com.canopysf.AutoOpenInNews';
 const IS_SAFARI = browser.runtime.getURL('').startsWith('safari-web-extension:');
 
 async function settings() {
-  const stored = await browser.storage.local.get(['sites', 'auto', 'opened', 'manual', 'manualAt']);
-  return {
-    sites: stored.sites ?? Object.fromEntries(self.SEED_SITES.map((s) => [s, true])),
-    auto: stored.auto ?? true,
-    opened: stored.opened ?? {},
-    manual: stored.manual ?? {}, // site -> true: show the pill, never open News by itself
-    manualAt: stored.manualAt ?? 0
-  };
+  const stored = await browser.storage.local.get(['sites', 'auto', 'manual', 'modes', 'modesAt', 'opened']);
+  const { modes, at, migrated } = modesFrom(stored, self.SEED_SITES);
+  if (migrated) await browser.storage.local.set({ modes, modesAt: at });
+  return { modes, modesAt: at, opened: stored.opened ?? {} };
 }
 
-/* The configured site that covers this host: itself or its nearest parent. */
+/* The sites that have a mode, plus the seed sites, which are off unless the map says otherwise. */
+function knownSites(modes) {
+  return { ...Object.fromEntries(self.SEED_SITES.map((s) => [s, 'off'])), ...modes };
+}
+
+/* The known site that covers this host: itself or its nearest parent. */
 function siteFor(host, sites) {
   for (let h = host; h.includes('.'); h = h.slice(h.indexOf('.') + 1)) {
     if (h in sites) return h;
@@ -84,27 +85,29 @@ function lookup(url) {
  */
 async function syncToApp() {
   if (!IS_SAFARI) return;
-  const { sites, auto, manual, manualAt } = await settings();
+  const { modes, modesAt } = await settings();
   const { seen = {}, active = 0, lastLookup = null } = await browser.storage.local.get(['seen', 'active', 'lastLookup']);
-  const reply = await browser.runtime.sendNativeMessage(APP_ID, { action: 'sync', state: { sites, auto, seen, active, lastLookup, manual, manualAt } });
+  const reply = await browser.runtime.sendNativeMessage(APP_ID, { action: 'sync', state: { modes, modesAt, seen, active, lastLookup } });
   await adoptFromApp(reply);
 }
 
 /*
- * The app can edit the button-only sites too. Whichever side changed them
- * last wins; the app's copy arrives with any native reply.
+ * The app can edit the modes too. Whichever side changed them last wins; the
+ * app's copy arrives with any native reply, and only when it is newer than
+ * the `modesAt` the extension sent.
  */
 async function adoptFromApp(reply) {
-  if (!(reply?.manualAt > (await settings()).manualAt)) return;
-  await browser.storage.local.set({ manual: reply.manual ?? {}, manualAt: reply.manualAt });
+  if (!(reply?.modesAt > (await settings()).modesAt) || typeof reply.modes !== 'object') return;
+  await browser.storage.local.set({ modes: cleanModes(reply.modes), modesAt: reply.modesAt });
 }
 
 async function pullFromApp() {
   if (!IS_SAFARI) return;
-  await adoptFromApp(await browser.runtime.sendNativeMessage(APP_ID, { action: 'pull' }).catch(() => null));
+  const { modesAt } = await settings();
+  await adoptFromApp(await browser.runtime.sendNativeMessage(APP_ID, { action: 'pull', modesAt }).catch(() => null));
 }
 
-/* Records that the extension ran (on an enabled site, if given), reporting it when stale. */
+/* Records that the extension ran (on a known site, if given), reporting it when stale. */
 async function noteActivity(site) {
   const now = Date.now();
   const { seen = {}, active = 0 } = await browser.storage.local.get(['seen', 'active']);
@@ -132,10 +135,10 @@ async function showMissing(tabId, url) {
 
 async function checkPage(urlString, tabId) {
   const url = new URL(urlString);
-  const { sites } = await settings();
-  const site = siteFor(url.hostname, sites);
-  noteActivity(site && sites[site] ? site : null).catch(() => {});
-  if (!site || !sites[site] || !hasArticleSlug(url)) return null;
+  const { modes } = await settings();
+  const site = siteFor(url.hostname, knownSites(modes));
+  noteActivity(site).catch(() => {});
+  if (modeFor(modes, site) === 'off' || !hasArticleSlug(url)) return null;
 
   const id = await lookup(urlString);
   if (id === null) showMissing(tabId, urlString).catch(() => {});
@@ -162,28 +165,15 @@ async function openArticle(id) {
 
 async function siteStatus(host) {
   await pullFromApp();
-  const { sites, auto, manual } = await settings();
-  const site = siteFor(host, sites);
-  return { site: site ?? host.replace(/^www\./, ''), on: !!(site && sites[site]), auto, siteAuto: !(site && manual[site]) };
+  const { modes } = await settings();
+  const site = siteFor(host, knownSites(modes));
+  return { site: site ?? host.replace(/^www\./, ''), mode: modeFor(modes, site) };
 }
 
-async function setSite(site, on) {
-  const { sites } = await settings();
-  await browser.storage.local.set({ sites: { ...sites, [site]: on } });
-  await syncToApp().catch(() => {});
-}
-
-async function setSiteAuto(site, on) {
-  const { manual } = await settings();
-  const next = { ...manual };
-  if (on) delete next[site];
-  else next[site] = true;
-  await browser.storage.local.set({ manual: next, manualAt: Date.now() });
-  await syncToApp().catch(() => {});
-}
-
-async function setAuto(on) {
-  await browser.storage.local.set({ auto: on });
+async function setMode(site, mode) {
+  if (!MODES.includes(mode)) return;
+  const { modes } = await settings();
+  await browser.storage.local.set({ modes: { ...modes, [site]: mode }, modesAt: Date.now() });
   await syncToApp().catch(() => {});
 }
 
@@ -192,9 +182,7 @@ const handlers = {
   lookup: async (m) => ({ id: await lookup(m.url) }),
   open: (m) => openArticle(m.id),
   siteStatus: (m) => siteStatus(m.host),
-  setSite: (m) => setSite(m.site, m.on),
-  setAuto: (m) => setAuto(m.on),
-  setSiteAuto: (m) => setSiteAuto(m.site, m.on)
+  setMode: (m) => setMode(m.site, m.mode)
 };
 
 // Callback style: Chrome ignores a promise returned from the listener.
