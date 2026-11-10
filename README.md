@@ -10,11 +10,11 @@ turn a web URL into a News article: in Swift for Safari, and in JavaScript for C
 ## How it works
 
 1. A content script reports each page you load to the extension's background script.
-2. If the page is on a site you've turned on and its URL ends in an article slug, the extension
+2. If the page is on a site whose mode is Ask or Auto and its URL ends in an article slug, the extension
    looks the URL up in Apple's public "open web links" index. In Safari the app extension's native
    code does this ([`OWLResolver.swift`](Extension/OWLResolver.swift)), so the request doesn't come
    from a browser context; Chrome, and Safari if that fails, use [`owl.js`](Extension/Resources/owl.js).
-3. On a hit, News opens the article (if automatic opening is on) and an *Open in News* pill appears
+3. On a hit, News opens the article (if the site is set to Auto) and an *Open in News* pill appears
    at the bottom of the page. A miss means News doesn't have the article, so nothing happens.
 
 The web extension is shared by every browser. Safari adds native code for the lookup and, on the Mac,
@@ -122,7 +122,7 @@ your own Apple ID and installs it.
 3. On the device, trust your Apple ID in **Settings › General › VPN & Device Management**. On iOS 16
    and later, also turn on **Settings › Privacy & Security › Developer Mode** if iOS asks.
 4. Open the app, tap **Open Safari Extension Settings**, turn **Auto Open in News** on, and allow it
-   on the publishers you read.
+   on the publishers you read. The app's **Sites** screen sets how the extension treats each site.
 5. Turn off **Settings › Apps › Safari › Extensions › Share Across Devices**, or Safari will keep
    turning the extension off (see below).
 
@@ -161,7 +161,7 @@ relaunches and applies the iCloud state, it switches the extension off, sometime
 sometimes after two. With sharing off, it stays on.
 
 The app shows status lights for the extension: whether Safari has it turned on, whether it has run
-on your sites, and whether automatic opening is on.
+on your sites, and how its last lookup went. The **Sites** screen lists every site.
 
 ### Builds you install yourself vs. release builds
 
@@ -189,11 +189,18 @@ next time. Chrome has no native helper to install.
 
 ## Using it
 
+- **Modes.** Every site is set to one of three modes: **Off** (never checked), **Ask** (articles are
+  checked and the *Open in News* pill appears, but News never opens by itself) or **Auto** (News opens
+  by itself, and the pill appears too). A site that isn't listed is Off.
 - **Sites.** [`sites.js`](Extension/Resources/sites.js) seeds paywalled publishers whose articles
-  resolve. Add or remove any site from the extension's menu in Safari's address bar (*Use on …*).
-- **Automatic opening** is on by default and can be turned off in the same menu. The pill at the
-  bottom of the page still appears. After opening a URL automatically, the extension leaves that
-  URL alone for 15 minutes, so you can come back to the web version.
+  resolve; a fresh install sets them all to Auto, and an update keeps the choices you had. Set the
+  current site's mode from the extension's menu in the address bar (Safari) or the toolbar popup
+  (Chrome). In the app, **Sites** lists every site with its mode, shows the ones you've visited
+  first, adds or removes your own, and has *Set all to Auto*. The app and the extension share one
+  list of modes; whichever changed it last wins, and Safari picks up the app's changes the next time
+  it finds an article.
+- **After opening a URL automatically**, the extension leaves that URL alone for 15 minutes, so you
+  can come back to the web version.
 - **Any page.** *Open in News* in the menu looks up whatever page you're on, on any site.
 
 To check whether News carries a site before adding it:
@@ -209,13 +216,14 @@ that block automated requests report 0/0.
 
 ```
 App/                      Status app for iOS and macOS (one SwiftUI source)
-Shared/SharedStatus.swift Settings the extension reports to the app, via an app group
+Shared/SharedStatus.swift Settings the extension reports to the app, and the app's edits of the site modes, via an app group
+Shared/SeedSites.swift    Seed site list for the app, generated from sites.js (node scripts/gen-seed-sites.js)
 Extension/
   SafariWebExtensionHandler.swift   Native lookups, status reports, opening News on the Mac
   OWLResolver.swift       Swift port of owl.js, used by Safari
   Resources/              The web extension, shared by Safari and Chrome
     owl.js                Apple News URL resolver (also runs in Node)
-    background.js         Site settings, lookups, auto-open cooldown
+    background.js         Site modes, lookups, auto-open cooldown
     content.js            Per-page check, auto-open and the pill
     popup.html, popup.js  The toolbar / address-bar menu
     sites.js              Seed site list
@@ -225,6 +233,7 @@ research/                 macOS tools used to recover the lookup
 scripts/
   build-chrome.sh         Assembles build/chrome
   install-mac.sh          Builds and installs the Mac app
+  gen-seed-sites.js       Regenerates Shared/SeedSites.swift from sites.js
   check-site.js           Measures how much of a site News carries
   make-icons.swift        Draws the icons
 ```
@@ -236,6 +245,9 @@ scripts/
   update here.
 - **A site list, not News+ membership.** News carries plenty of free publishers too. The seed list
   is paywalled publishers only, so free articles aren't sent to News without you asking.
+- **Visits are recorded locally.** For each site on the seed list or one you added, in any mode, the
+  extension keeps the time it last saw you there (never the URLs). It stays in the extension's
+  storage and the app group so the app can show it; it is never sent anywhere.
 - **Single-page apps.** Pages are checked when they load, so articles a site opens without a full
   page load are missed. Use the menu button for those.
 
