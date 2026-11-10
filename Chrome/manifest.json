@@ -8,7 +8,7 @@
     "96": "icons/96.png",
     "128": "icons/128.png"
   },
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "contextMenus"],
   "host_permissions": ["https://news-assets.apple.com/*"],
   "background": {
     "service_worker": "sw.js"

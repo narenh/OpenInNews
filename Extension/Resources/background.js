@@ -120,14 +120,25 @@ async function setTabIcon(tabId, id) {
 }
 
 /*
- * Grays the tab's icon for a page News lacks, unless the tab has moved on to
- * another page. Query and fragment are ignored: sites often rewrite them in place.
+ * Whether the tab still shows this page. Query and fragment are ignored: sites
+ * often rewrite them in place.
  */
-async function showMissing(tabId, url) {
-  if (tabId === undefined) return;
+async function stillOn(tabId, url) {
+  if (tabId === undefined) return false;
   const page = (u) => { const { origin, pathname } = new URL(u); return origin + pathname; };
   const tab = await browser.tabs.get(tabId);
-  if (tab.url && page(tab.url) === page(url)) await setTabIcon(tabId, null);
+  return Boolean(tab.url) && page(tab.url) === page(url);
+}
+
+/* With no popup, a click on the toolbar button fires action.onClicked instead. */
+async function setTabPopup(tabId, on) {
+  await browser.action.setPopup({ tabId, popup: on ? browser.runtime.getManifest().action.default_popup : '' });
+}
+
+/* Opens the article as the popup's Open in News button does. */
+async function openInTab(tab, id) {
+  const { opened } = await openArticle(id);
+  if (!opened) await browser.tabs.update(tab.id, { url: `applenewss:///${id}` });
 }
 
 async function checkPage(urlString, tabId) {
@@ -138,19 +149,37 @@ async function checkPage(urlString, tabId) {
   if (!site || !sites[site] || !hasArticleSlug(url)) return null;
 
   const id = await lookup(urlString);
-  if (id === null) showMissing(tabId, urlString).catch(() => {});
+  if (id === null && await stillOn(tabId, urlString).catch(() => false)) setTabIcon(tabId, null).catch(() => {});
   if (!id) return null;
 
   await pullFromApp();
   const current = await settings();
   const { opened } = current;
   const now = Date.now();
-  const openNow = autoOpens(current, site) && !(now - (opened[urlString] ?? 0) < COOLDOWN_MS);
+  const automatic = autoOpens(current, site);
+  const openNow = automatic && !(now - (opened[urlString] ?? 0) < COOLDOWN_MS);
+  // Not opening by itself: the toolbar button opens the article in one click.
+  if (!automatic && await stillOn(tabId, urlString).catch(() => false)) setTabPopup(tabId, false).catch(() => {});
   if (openNow) {
     const recent = Object.fromEntries(Object.entries(opened).filter(([, t]) => now - t < COOLDOWN_MS));
     await browser.storage.local.set({ opened: { ...recent, [urlString]: now } });
   }
   return { id, openNow };
+}
+
+async function siteIsOn(urlString) {
+  const { sites } = await settings();
+  const site = siteFor(new URL(urlString).hostname, sites);
+  return Boolean(site && sites[site]);
+}
+
+/* Whether this page should be one-click, decided as checkPage does: an article News has that won't open by itself. */
+async function opensOnClick(urlString) {
+  const url = new URL(urlString);
+  const current = await settings();
+  const site = siteFor(url.hostname, current.sites);
+  if (!site || !current.sites[site] || !hasArticleSlug(url) || autoOpens(current, site)) return false;
+  return Boolean(await lookup(urlString));
 }
 
 /* Opens News from the native handler, which only does so on the Mac. */
@@ -194,7 +223,8 @@ const handlers = {
   siteStatus: (m) => siteStatus(m.host),
   setSite: (m) => setSite(m.site, m.on),
   setAuto: (m) => setAuto(m.on),
-  setSiteAuto: (m) => setSiteAuto(m.site, m.on)
+  setSiteAuto: (m) => setSiteAuto(m.site, m.on),
+  popupShown: () => settingsShown(true)
 };
 
 // Callback style: Chrome ignores a promise returned from the listener.
@@ -205,7 +235,50 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// A new page starts with the normal icon; checkPage grays it if News lacks it.
+// A new page starts with the normal icon and the popup; checkPage changes them.
 browser.tabs.onUpdated.addListener((tabId, change) => {
-  if (change.status === 'loading') setTabIcon(tabId, undefined).catch(() => {});
+  if (change.status !== 'loading') return;
+  setTabIcon(tabId, undefined).catch(() => {});
+  setTabPopup(tabId, true).catch(() => {});
 });
+
+/*
+ * Shows the settings popup for a tab. If the popup doesn't report in shortly,
+ * the settings open in a new tab instead. With `oneClick`, a one-click page
+ * gets its popup removed again once the popup has shown.
+ */
+const SETTINGS_WAIT_MS = 1500;
+let settingsShown = () => {};
+
+async function showSettings(tab, { oneClick = false } = {}) {
+  let resolve;
+  const shown = new Promise((r) => { resolve = settingsShown = r; });
+  setTimeout(() => resolve(false), SETTINGS_WAIT_MS);
+  // No await before openPopup: Safari may only open it straight from the click.
+  setTabPopup(tab.id, true).catch(() => {});
+  browser.action.openPopup().catch(() => resolve(false));
+  if (!(await shown)) await browser.tabs.create({ url: browser.runtime.getURL(`popup.html?tab=${tab.id}`) });
+  if (oneClick && await opensOnClick(tab.url).catch(() => false)) await setTabPopup(tab.id, false);
+}
+
+// Only fires on a tab whose popup checkPage removed.
+browser.action.onClicked.addListener(async (tab) => {
+  // The site may have been turned off since checkPage.
+  const id = await siteIsOn(tab.url).catch(() => false) && await lookup(tab.url);
+  if (id) return openInTab(tab, id);
+  // The site is off, or the article can't be found now (lookup failed, or the page changed).
+  return showSettings(tab);
+});
+
+// Safari passes no click modifiers, so the settings sit in the button's right-click
+// menu. iOS has no such menu.
+// Caught: in Chrome's service worker a throw here would stop the whole script loading.
+try {
+  browser.contextMenus?.removeAll().then(() =>
+    browser.contextMenus.create({ id: 'settings', title: 'Settings\u2026', contexts: ['action'] })).catch((e) => console.error('Settings menu:', e));
+  browser.contextMenus?.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'settings' && tab) showSettings(tab, { oneClick: true });
+  });
+} catch (e) {
+  console.error('Settings menu:', e);
+}

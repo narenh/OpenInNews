@@ -2,7 +2,11 @@ const $ = (id) => document.getElementById(id);
 const send = (action, fields = {}) => browser.runtime.sendMessage({ action, ...fields });
 
 (async () => {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  send('popupShown');
+  // Opened in a tab of its own (see showSettings), the page names the tab it is for.
+  const forTab = new URLSearchParams(location.search).get('tab');
+  // A closed tab leaves `tab` empty, which shows "Open a web page first."
+  const tab = forTab ? await browser.tabs.get(Number(forTab)).catch(() => null) : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
   if (!/^https?:/.test(tab?.url ?? '')) {
     $('open').disabled = true;
     $('note').textContent = 'Open a web page first.';
