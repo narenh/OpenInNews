@@ -25,12 +25,13 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 }
             }
         case "sync":
-            if let state = message["state"] {
+            let state = message["state"] as? [String: Any]
+            if let state {
                 SharedStatus.save(state)
             }
-            Self.reply(context, Self.appManual())
+            Self.reply(context, Self.appModes(newerThan: state?["modesAt"] as? Double))
         case "pull":
-            Self.reply(context, Self.appManual())
+            Self.reply(context, Self.appModes(newerThan: message["modesAt"] as? Double))
         case "open":
             Self.reply(context, ["opened": open(articleID: message["id"] as? String)])
         default:
@@ -38,10 +39,11 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         }
     }
 
-    /// The app's button-only sites; background.js keeps them if they're newer.
-    private static func appManual() -> [String: Any] {
-        guard let manual = SharedStatus.loadManual() else { return [:] }
-        return ["manual": manual.sites, "manualAt": manual.at]
+    /// The modes as edited in the app, only if newer than the extension's copy
+    /// (`modesAt`, ms since 1970); background.js keeps them if they're newer still.
+    private static func appModes(newerThan modesAt: Double?) -> [String: Any] {
+        guard let app = SharedStatus.loadModes(), app.at > (modesAt ?? 0) else { return [:] }
+        return ["modes": app.modes.mapValues(\.rawValue), "modesAt": app.at]
     }
 
     private static func reply(_ context: NSExtensionContext, _ message: [String: Any]) {

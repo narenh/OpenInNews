@@ -4,13 +4,11 @@ import Foundation
 /// through the app group. Safari keeps the real settings in the extension's
 /// own storage, which the app can't read.
 struct ExtensionStatus: Codable {
-    var sites: [String: Bool]   // site -> on/off
-    var auto: Bool
+    var modes: [String: String]? // site -> SiteMode raw value; nil from an extension that predates modes
+    var modesAt: Double?         // when modes last changed in Safari (ms since 1970)
     var seen: [String: Double]  // site -> when the extension last ran there (ms since 1970)
     var active: Double          // when the extension last ran anywhere (ms since 1970)
     var lastLookup: Lookup?
-    var manual: [String: Bool]?  // site -> true: button only, never opens News by itself
-    var manualAt: Double?        // when manual last changed in Safari (ms since 1970)
 
     struct Lookup: Codable {
         var ranged: Bool        // fetched part of the index rather than the whole bucket file
@@ -23,6 +21,14 @@ struct ExtensionStatus: Codable {
     func lastSeen(_ site: String) -> Date? {
         seen[site].map { Date(timeIntervalSince1970: $0 / 1000) }
     }
+}
+
+/// What the extension does on a site. A site that isn't in the map is off.
+enum SiteMode: String, CaseIterable, Identifiable {
+    case off, ask, auto
+
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
 }
 
 enum SharedStatus {
@@ -41,7 +47,7 @@ enum SharedStatus {
     }
     private static let statusKey = "extensionStatus"
     private static let syncedKey = "syncedAt"
-    private static let manualKey = "manualSites"
+    private static let modesKey = "siteModes"
 
     static func save(_ json: Any) {
         guard let data = try? JSONSerialization.data(withJSONObject: json),
@@ -50,17 +56,17 @@ enum SharedStatus {
         defaults?.set(Date(), forKey: syncedKey)
     }
 
-    /// Button-only sites as last edited in the app, with when (ms since 1970).
+    /// The site modes as last edited in the app, with when (ms since 1970).
     /// The extension takes them when they're newer than its own copy.
-    static func loadManual() -> (sites: [String: Bool], at: Double)? {
-        guard let stored = defaults?.dictionary(forKey: manualKey),
-              let sites = stored["manual"] as? [String: Bool],
-              let at = stored["manualAt"] as? Double else { return nil }
-        return (sites, at)
+    static func loadModes() -> (modes: [String: SiteMode], at: Double)? {
+        guard let stored = defaults?.dictionary(forKey: modesKey),
+              let raw = stored["modes"] as? [String: String],
+              let at = stored["modesAt"] as? Double else { return nil }
+        return (raw.compactMapValues(SiteMode.init(rawValue:)), at)
     }
 
-    static func saveManual(_ sites: [String: Bool]) {
-        defaults?.set(["manual": sites, "manualAt": Date().timeIntervalSince1970 * 1000], forKey: manualKey)
+    static func saveModes(_ modes: [String: SiteMode]) {
+        defaults?.set(["modes": modes.mapValues(\.rawValue), "modesAt": Date().timeIntervalSince1970 * 1000], forKey: modesKey)
     }
 
     static func load() -> (status: ExtensionStatus, syncedAt: Date)? {
